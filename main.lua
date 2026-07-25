@@ -202,21 +202,27 @@ invokeFlood()
 lanternCycle()
 changeValueFlood() end
 
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/gen2"))()
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 local window = Rayfield:CreateWindow({
-    name = "God's panel.",
-    subtitle = "Made by zdecro ( caster )",
-    theme = "Rose",
-    configuration = { autoSave = false, fileName = "GodsPanel" }
+    Name = "God's panel.",
+    LoadingTitle = "Made by zdecro ( caster )",
+    LoadingSubtitle = "by Sirius",
+    Theme = "Serenity",
+    ConfigurationSaving = { Enabled = false, FileName = "GodsPanel" },
+    Discord = { Enabled = false, Invite = "noenv", RememberJoins = true },
+    KeySystem = false
 })
 
-local ServerTab = window:CreateTab({ name = "Server" })
-ServerTab:CreateSection({ name = "Server damage" })
-ServerTab:CreateButton({ name = "Server lag", description = "After clicking on it, a light bulb will appear in your hands and FPS will drop on everyone on the server. I advise you to hide, otherwise it will be seen that you are using this function. The closer you get to the other players, the more laggy they get. If you use this function for a long time, it will start to weaken, you need to restart and turn it on again. To turn it off, rejoin.", callback = function() fireCrash() end })
+local ServerTab = window:CreateTab("Server", nil)
+
+ServerTab:CreateSection("Server damage")
+ServerTab:CreateParagraph({Title = "Description", Content = "\nAfter clicking on it, a light bulb will appear in your hands and FPS will drop on everyone on the server. I advise you to hide, otherwise it will be seen that you are using this function. The closer you get to the other players, the more laggy they get. If you use this function for a long time, it will start to weaken, you need to restart and turn it on again. To turn it off, rejoin."})
+ServerTab:CreateButton({ Name = "Server lag", Callback = function() fireCrash() end })
+
+ServerTab:CreateParagraph({Title = "Description", Content = "\nNOT WORKING!"})
 ServerTab:CreateButton({
-    name = "Server kill",
-    description = "NOT WORKING!",
-    callback = function()
+    Name = "Server kill",
+    Callback = function()
         game:GetService("ReplicatedStorage").Remotes.To_Server.Handle_Initiate_S:FireServer("skil_ting_asd",LocalPlayer,"thunderbreathingricespirit",5)
         local args={[1]="ricespiritdamage",[2]=LocalPlayer.Character,[3]=CFrame.new(-362.2265930175781,425.482421875,-2354.545166015625,0.32892149686813354,0.024535520002245903,0.9440385103225708,1.0956046736509961e-07,0.999662458896637,-0.025981221348047256,-0.9443572759628296,0.008545885793864727,0.328810453414917),[4]=99999999999999999999999}
         game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("To_Server"):WaitForChild("Handle_Initiate_S"):FireServer(unpack(args))
@@ -225,32 +231,35 @@ ServerTab:CreateButton({
     end,
 })
 
-ServerTab:CreateSection({ name = "Misc" })
+ServerTab:CreateSection("Misc")
 ServerTab:CreateButton({
-    name = "Rejoin",
-    callback = function()
+    Name = "Rejoin",
+    Callback = function()
         local placeId=game.PlaceId
         local jobId=game.JobId
         if placeId and jobId and #jobId>0 then TeleportService:TeleportToPlaceInstance(placeId,jobId) end
     end,
 })
-ServerTab:CreateToggle({ name = "Rejoin on kicks", value = false, flag = "RejoinOnKicks", callback = function(v) rejoinOnKickEnabled=v end })
+ServerTab:CreateToggle({ Name = "Rejoin on kicks", CurrentValue = false, Flag = "RejoinOnKicks", Callback = function(v) rejoinOnKickEnabled=v end })
 
-ServerTab:CreateSection({ name = "Kill all" })
+ServerTab:CreateSection("Kill all")
 getgenv().selectedPlayerName = ""
 getgenv().TargetPlayersArrow = false
 getgenv().AllArrow = false
-ServerTab:CreateInput({ name = "Player Target", description = "This is the arrow kill aura. You need an arrow.", placeholder = "zdecro, RobloxServerTest_1, cardcheaf", callback = function(Text) getgenv().selectedPlayerName = Text end })
-ServerTab:CreateToggle({ name = "Arrow aura (Target)", description = "one or more players are attacking.", value = false, flag = "ArrowTarget", callback = function(v) getgenv().TargetPlayersArrow = v end })
-ServerTab:CreateToggle({ name = "Arrow aura (All)", description = "all players are attacking.", value = false, flag = "ArrowAll", callback = function(v) getgenv().AllArrow = v end })
+ServerTab:CreateParagraph({Title = "Description", Content = "\nThis is the arrow kill aura. You need an arrow."})
+ServerTab:CreateInput({ Name = "Player target", PlaceholderText = "zdecro, RobloxServerTest_1, cardcheaf", RemoveTextAfterFocusLost = false, Callback = function(Text) getgenv().selectedPlayerName = Text end })
+ServerTab:CreateParagraph({Title = "Description", Content = "\nOne or more players are attacking."})
+ServerTab:CreateToggle({ Name = "Arrow aura", CurrentValue = false, Flag = "ArrowTarget", Callback = function(v) getgenv().TargetPlayersArrow = v end })
+ServerTab:CreateParagraph({Title = "Description", Content = "\nAll players are attacking."})
+ServerTab:CreateToggle({ Name = "Arrow aura", CurrentValue = false, Flag = "ArrowAll", Callback = function(v) getgenv().AllArrow = v end })
 
-local LocalTab = window:CreateTab({ name = "Local" })
+local LocalTab = window:CreateTab("Local", nil)
 
-LocalTab:CreateSection({ name = "Optimization" })
+LocalTab:CreateSection("Optimization")
+LocalTab:CreateParagraph({Title = "Description", Content = "\nDisables some effects/parts. To turn it off rejoin."})
 LocalTab:CreateButton({
-    name = "Boost FPS",
-    description = "Disables some effects/parts. To turn it off rejoin.",
-    callback = function()
+    Name = "Boost FPS",
+    Callback = function()
         if _G.__PSOptimizerConns then for _,c in ipairs(_G.__PSOptimizerConns) do c:Disconnect() end end
         _G.__PSOptimizerConns={}
         local disabledCount=0
@@ -275,10 +284,10 @@ LocalTab:CreateButton({
     end,
 })
 
-LocalTab:CreateSection({ name = "Walkspeed" })
+LocalTab:CreateSection("Walkspeed")
 LocalTab:CreateSlider({
-    name = "WalkSpeed Override", range = {16, 200}, increment = 1, suffix = "Speed", value = 16, flag = "WalkSpeedSlider",
-    callback = function(Value)
+    Name = "WalkSpeed Override", Range = {16, 200}, Increment = 1, Suffix = "Speed", CurrentValue = 16, Flag = "WalkSpeedSlider",
+    Callback = function(Value)
         if Value==16 then speedMultiplier=1 else speedMultiplier=Value/16 end
         local character=LocalPlayer.Character
         local humanoid=character and character:FindFirstChildOfClass("Humanoid")
@@ -286,8 +295,8 @@ LocalTab:CreateSlider({
     end,
 })
 LocalTab:CreateButton({
-    name = "Reset WalkSpeed",
-    callback = function()
+    Name = "Reset WalkSpeed",
+    Callback = function()
         speedMultiplier=1
         local character=LocalPlayer.Character
         local humanoid=character and character:FindFirstChildOfClass("Humanoid")
@@ -295,10 +304,10 @@ LocalTab:CreateButton({
     end,
 })
 
-LocalTab:CreateSection({ name = "BDA" })
+LocalTab:CreateSection("BDA")
 LocalTab:CreateButton({
-    name = "Spin BDA",
-    callback = function()
+    Name = "Spin BDA",
+    Callback = function()
         pcall(function() game:GetService("ReplicatedStorage").Remotes.To_Server.Handle_Initiate_S_:InvokeServer("check_can_spin_demon_art") end)
         task.wait(0.1)
         pcall(function()
@@ -314,7 +323,7 @@ LocalTab:CreateButton({
         end)
     end,
 })
-local SpinLabel = LocalTab:CreateStat({ name = "Spins" })
+local SpinLabel = LocalTab:CreateLabel("Spins: 0")
 task.spawn(function()
     while not scriptUnloaded do
         local rs=game:GetService("ReplicatedStorage")
@@ -323,15 +332,15 @@ task.spawn(function()
         local pData=pd and pd:FindFirstChild(LocalPlayer.Name)
         local pValues=pv and pv:FindFirstChild(LocalPlayer.Name)
         local spinsVal=(pData and pData:FindFirstChild("Demon_art_Spins")) or (pValues and pValues:FindFirstChild("Demon_art_Spins"))
-        if spinsVal then SpinLabel:Set(tostring(spinsVal.Value)) else SpinLabel:Set("0") end
+        if spinsVal then SpinLabel:Set("Spins: " .. tostring(spinsVal.Value)) else SpinLabel:Set("Spins: 0") end
         task.wait(0.5)
     end
 end)
 
-LocalTab:CreateSection({ name = "Character" })
+LocalTab:CreateSection("Character")
 LocalTab:CreateToggle({
-    name = "No Sun Damage", value = false, flag = "NoSunDmg",
-    callback = function(Value)
+    Name = "No Sun Damage", CurrentValue = false, Flag = "NoSunDmg",
+    Callback = function(Value)
         noSunDamageEnabled=(Value==true)
         if not noSunDamageEnabled then
             local pValues=ReplicatedStorage:FindFirstChild("PlayerValues")
@@ -342,8 +351,8 @@ LocalTab:CreateToggle({
     end,
 })
 LocalTab:CreateToggle({
-    name = "Infinity Stamina", value = false, flag = "InfStamina",
-    callback = function(Value)
+    Name = "Infinity Stamina", CurrentValue = false, Flag = "InfStamina",
+    Callback = function(Value)
         local val=(Value==true)
         if infinityStaminaEnabled==val then return end
         infinityStaminaEnabled=val
@@ -355,12 +364,13 @@ LocalTab:CreateToggle({
         end
     end,
 })
-LocalTab:CreateToggle({ name = "Anti Drown", value = false, flag = "AntiDrown", callback = function(Value) antiDrownEnabled=(Value==true) end })
-LocalTab:CreateToggle({ name = "Infinity & Climbing", description = "Allows endless climbing on all surfaces.", value = false, flag = "InfClimbing", callback = function(Value) infinityClimbEnabled=(Value==true) end })
-LocalTab:CreateToggle({ name = "Infinity War fans buff", value = false, flag = "InfWarFans", callback = function(Value) getgenv().InfWarFans=Value end })
+LocalTab:CreateToggle({ Name = "Anti Drown", CurrentValue = false, Flag = "AntiDrown", Callback = function(Value) antiDrownEnabled=(Value==true) end })
+LocalTab:CreateParagraph({Title = "Description", Content = "\nAllows endless climbing on all surfaces."})
+LocalTab:CreateToggle({ Name = "Infinity & Climbing", CurrentValue = false, Flag = "InfClimbing", Callback = function(Value) infinityClimbEnabled=(Value==true) end })
+LocalTab:CreateToggle({ Name = "Infinity War fans buff", CurrentValue = false, Flag = "InfWarFans", Callback = function(Value) getgenv().InfWarFans=Value end })
 LocalTab:CreateToggle({
-    name = "Infinity Breathing", value = false, flag = "InfBreathing",
-    callback = function(Value)
+    Name = "Infinity Breathing", CurrentValue = false, Flag = "InfBreathing",
+    Callback = function(Value)
         local val=(Value==true)
         if infinityBreathingEnabled==val then return end
         infinityBreathingEnabled=val
@@ -368,17 +378,18 @@ LocalTab:CreateToggle({
     end,
 })
 LocalTab:CreateToggle({
-    name = "Heart Ablaze", value = false, flag = "HeartAblaze",
-    callback = function(Value)
+    Name = "Heart Ablaze", CurrentValue = false, Flag = "HeartAblaze",
+    Callback = function(Value)
         pcall(function() game:GetService("ReplicatedStorage").Remotes.heart_ablaze_mode_remote:FireServer(Value) end)
     end,
 })
 
-LocalTab:CreateSection({ name = "Cooldown" })
+LocalTab:CreateSection("Cooldown")
 local lowCDTogglesList = {}
+LocalTab:CreateParagraph({Title = "Description", Content = "\nReduces cooldown time by 40%. When using skills quickly, it can kick. I recommend using it with auto rejoin."})
 local allLowCDToggle = LocalTab:CreateToggle({
-    name = "Enable all low cooldowns", description = "reduces cooldown time by 40%. When using skills quickly, it can kick. I recommend using it with auto rejoin.", value = false, flag = "AllLowCD",
-    callback = function(Value)
+    Name = "Enable all low cooldowns", CurrentValue = false, Flag = "AllLowCD",
+    Callback = function(Value)
         updatingToggles = true
         for _, tog in ipairs(lowCDTogglesList) do tog:Set(Value) end
         updatingToggles = false
@@ -386,13 +397,13 @@ local allLowCDToggle = LocalTab:CreateToggle({
 })
 local function addCDToggle(name, flag, callback)
     local tog = LocalTab:CreateToggle({
-        name = name, value = false, flag = flag,
-        callback = function(Value)
+        Name = name, CurrentValue = false, Flag = flag,
+        Callback = function(Value)
             callback(Value)
             if not updatingToggles and allLowCDToggle then
                 updatingToggles = true
                 local allEnabled = true
-                for _, t in ipairs(lowCDTogglesList) do if not t.value then allEnabled = false break end end
+                for _, t in ipairs(lowCDTogglesList) do if not t.CurrentValue then allEnabled = false break end end
                 allLowCDToggle:Set(allEnabled)
                 updatingToggles = false
             end
@@ -424,17 +435,18 @@ addCDToggle("Insect low cooldown", "InsectCD", function(v) insectLowCD=v end)
 addCDToggle("Snow low cooldown", "SnowCD", function(v) snowLowCD=v end)
 addCDToggle("Beast low cooldown", "BeastCD", function(v) beastLowCD=v end)
 
-local AnotherTab = window:CreateTab({ name = "Another" })
-AnotherTab:CreateSection({ name = "Frosties" })
-AnotherTab:CreateButton({ name = "Launch", description = "Launches anither exploit \"frosties\"", callback = function() loadstring(game:HttpGet("https://getfrosties.com/Frosties.luau"))() end })
+local AnotherTab = window:CreateTab("Another", nil)
+AnotherTab:CreateSection("Frosties")
+AnotherTab:CreateParagraph({Title = "Description", Content = "\nLaunches another exploit \"frosties\""})
+AnotherTab:CreateButton({ Name = "Launch", Callback = function() loadstring(game:HttpGet("https://getfrosties.com/Frosties.luau"))() end })
 
-AnotherTab:CreateSection({ name = "Auto-Block" })
+AnotherTab:CreateSection("Auto-Block")
 local autoBlockConns={}
+AnotherTab:CreateParagraph({Title = "Description", Content = "\nReads animations and presses F before starting the animation of nearby players."})
 AnotherTab:CreateToggle({
-    name = "Auto-Block",
-    description = "Reads animations and presses F before starting the animation of nearby players.",
-    value = false,
-    callback = function(enabled)
+    Name = "Auto-Block",
+    CurrentValue = false,
+    Callback = function(enabled)
         if not enabled then
             for _,c in ipairs(autoBlockConns) do c:Disconnect() end
             autoBlockConns={} return
@@ -468,12 +480,12 @@ AnotherTab:CreateToggle({
 })
 
 if LocalPlayer.UserId == 2669200504 then
-    local AdminTab = window:CreateTab({ name = "Admin" })
-    AdminTab:CreateSection({ name = "Execution Logs (Last 12h)" })
+    local AdminTab = window:CreateTab("Admin", nil)
+    AdminTab:CreateSection("Execution Logs (Last 12h)")
     local addedLogs = {}
     AdminTab:CreateButton({
-        name = "Refresh Logs",
-        callback = function()
+        Name = "Refresh Logs",
+        Callback = function()
             if not req then return end
             task.spawn(function()
                 pcall(function()
@@ -484,7 +496,7 @@ if LocalPlayer.UserId == 2669200504 then
                                 local s,d=pcall(function() return HttpService:JSONDecode(line) end)
                                 if s and d and d.message and not addedLogs[d.message] then
                                     addedLogs[d.message]=true
-                                    AdminTab:CreateButton({name=d.message,callback=function() pcall(function() if setclipboard then setclipboard(d.message) end end) end})
+                                    AdminTab:CreateButton({Name=d.message,Callback=function() pcall(function() if setclipboard then setclipboard(d.message) end end) end})
                                 end
                             end
                         end
