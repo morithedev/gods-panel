@@ -213,13 +213,16 @@ local window = Rayfield:CreateWindow({
     KeySystem = false
 })
 
+local InfoTab = window:CreateTab("Info", nil)
+InfoTab:CreateSection("Info")
+InfoTab:CreateParagraph({Title = "Description", Content = "\nThis script was created to simplify the gameplay, i do not promote hacking or cheating. The script was completely created by zdecro (seraphim). I also want to thank zinks for a lot of ideas. Have a good game."})
+
 local ServerTab = window:CreateTab("Server", nil)
 
 ServerTab:CreateSection("Server damage")
-ServerTab:CreateParagraph({Title = "Description", Content = "\nAfter clicking on it, a light bulb will appear in your hands and FPS will drop on everyone on the server. I advise you to hide, otherwise it will be seen that you are using this function. The closer you get to the other players, the more laggy they get. If you use this function for a long time, it will start to weaken, you need to restart and turn it on again. To turn it off, rejoin."})
 ServerTab:CreateButton({ Name = "Server lag", Callback = function() fireCrash() end })
+ServerTab:CreateParagraph({Title = "Description", Content = "\nAfter clicking on it, a light bulb will appear in your hands and FPS will drop on everyone on the server. I advise you to hide, otherwise it will be seen that you are using this function. The closer you get to the other players, the more laggy they get. If you use this function for a long time, it will start to weaken, you need to restart and turn it on again. To turn it off, rejoin."})
 
-ServerTab:CreateParagraph({Title = "Description", Content = "\nNOT WORKING!"})
 ServerTab:CreateButton({
     Name = "Server kill",
     Callback = function()
@@ -230,6 +233,7 @@ ServerTab:CreateButton({
         TeleportService:Teleport(game.PlaceId)
     end,
 })
+ServerTab:CreateParagraph({Title = "Description", Content = "\nNOT WORKING!"})
 
 ServerTab:CreateSection("Misc")
 ServerTab:CreateButton({
@@ -246,17 +250,117 @@ ServerTab:CreateSection("Kill all")
 getgenv().selectedPlayerName = ""
 getgenv().TargetPlayersArrow = false
 getgenv().AllArrow = false
-ServerTab:CreateParagraph({Title = "Description", Content = "\nThis is the arrow kill aura. You need an arrow."})
 ServerTab:CreateInput({ Name = "Player target", PlaceholderText = "zdecro, RobloxServerTest_1, cardcheaf", RemoveTextAfterFocusLost = false, Callback = function(Text) getgenv().selectedPlayerName = Text end })
-ServerTab:CreateParagraph({Title = "Description", Content = "\nOne or more players are attacking."})
+ServerTab:CreateParagraph({Title = "Description", Content = "\nThis is the arrow kill aura. You need an arrow."})
 ServerTab:CreateToggle({ Name = "Arrow aura", CurrentValue = false, Flag = "ArrowTarget", Callback = function(v) getgenv().TargetPlayersArrow = v end })
-ServerTab:CreateParagraph({Title = "Description", Content = "\nAll players are attacking."})
+ServerTab:CreateParagraph({Title = "Description", Content = "\nOne or more players are attacking."})
 ServerTab:CreateToggle({ Name = "Arrow aura", CurrentValue = false, Flag = "ArrowAll", Callback = function(v) getgenv().AllArrow = v end })
+ServerTab:CreateParagraph({Title = "Description", Content = "\nAll players are attacking."})
 
 local LocalTab = window:CreateTab("Local", nil)
 
+LocalTab:CreateSection("Evade")
+_G.__EvadeESPConns = _G.__EvadeESPConns or {}
+LocalTab:CreateToggle({
+    Name = "Evade ESP",
+    CurrentValue = false,
+    Flag = "EvadeESP",
+    Callback = function(Value)
+        for _, c in ipairs(_G.__EvadeESPConns) do c:Disconnect() end
+        table.clear(_G.__EvadeESPConns)
+        
+        local function cleanupESP(char)
+            if not char then return end
+            local head = char:FindFirstChild("Head")
+            if head then
+                local old = head:FindFirstChild("EvadeESP_Zinks")
+                if old then old:Destroy() end
+            end
+        end
+
+        for _, p in ipairs(Players:GetPlayers()) do
+            cleanupESP(p.Character)
+        end
+
+        if not Value then return end
+
+        local function applyESP(char)
+            if not char or char.Parent == nil then return end
+            local player = Players:GetPlayerFromCharacter(char)
+            if not player or player == LocalPlayer then return end
+            
+            local head = char:WaitForChild("Head", 5)
+            if not head then return end
+            
+            cleanupESP(char)
+            
+            local bgui = Instance.new("BillboardGui")
+            bgui.Name = "EvadeESP_Zinks"
+            bgui.Adornee = head
+            bgui.Size = UDim2.new(3, 0, 1.5, 0)
+            bgui.StudsOffset = Vector3.new(0, 2, 0)
+            bgui.AlwaysOnTop = false
+            bgui.MaxDistance = 100
+            
+            local text = Instance.new("TextLabel", bgui)
+            text.Size = UDim2.new(1, 0, 1, 0)
+            text.BackgroundTransparency = 1
+            text.TextScaled = true
+            text.TextColor3 = Color3.new(1, 1, 1)
+            text.Font = Enum.Font.SourceSansBold
+            
+            -- Вычисляем стартовое количество эвейдов через данные клана
+            local maxDodges = 2
+            pcall(function()
+                local pd = game:GetService("ReplicatedStorage"):FindFirstChild("Player_Data")
+                local pData = pd and pd:FindFirstChild(player.Name)
+                if pData then
+                    local clan = pData:FindFirstChild("Clan")
+                    if clan then
+                        local clansData = require(game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Data"):WaitForChild("ClansData"))
+                        local boost = clansData.ClanStats and clansData.ClanStats[clan.Value] and clansData.ClanStats[clan.Value].Combo_Escape_boost or 0
+                        maxDodges = maxDodges + boost
+                    end
+                end
+                if workspace:FindFirstChild("is_ouwigahara") then maxDodges = maxDodges + 9999 end
+            end)
+            text.Text = tostring(maxDodges)
+            
+            bgui.Parent = head
+            
+            -- Самоочищающиеся коннекты (не нагружают таблицу и удаляются при отключении/смерти)
+            local function checkDodges()
+                local dodges = char:FindFirstChild("dodgesasdasd")
+                if dodges then
+                    text.Text = tostring(dodges.Value)
+                    local c_change; c_change = dodges.Changed:Connect(function()
+                        if not bgui.Parent then c_change:Disconnect() return end
+                        text.Text = tostring(dodges.Value)
+                    end)
+                end
+            end
+            
+            checkDodges()
+            local c_add; c_add = char.ChildAdded:Connect(function(child)
+                if not bgui.Parent then c_add:Disconnect() return end
+                if child.Name == "dodgesasdasd" then checkDodges() end
+            end)
+        end
+
+        local function onPlayer(p)
+            if p.Character then task.spawn(applyESP, p.Character) end
+            local c = p.CharacterAdded:Connect(applyESP)
+            table.insert(_G.__EvadeESPConns, c)
+        end
+
+        for _, p in ipairs(Players:GetPlayers()) do onPlayer(p) end
+        local c = Players.PlayerAdded:Connect(onPlayer)
+        table.insert(_G.__EvadeESPConns, c)
+    end
+})
+LocalTab:CreateParagraph({Title = "Description", Content = "\nShows the evades of the opponents."})
+
 LocalTab:CreateSection("Optimization")
-LocalTab:CreateParagraph({Title = "Description", Content = "\nDisables some effects/parts. To turn it off rejoin."})
 LocalTab:CreateButton({
     Name = "Boost FPS",
     Callback = function()
@@ -283,6 +387,7 @@ LocalTab:CreateButton({
         print(string.format("[Optimizer] Disabled %d instances.",disabledCount))
     end,
 })
+LocalTab:CreateParagraph({Title = "Description", Content = "\nDisables some effects/parts. To turn it off rejoin."})
 
 LocalTab:CreateSection("Walkspeed")
 LocalTab:CreateSlider({
@@ -365,8 +470,8 @@ LocalTab:CreateToggle({
     end,
 })
 LocalTab:CreateToggle({ Name = "Anti Drown", CurrentValue = false, Flag = "AntiDrown", Callback = function(Value) antiDrownEnabled=(Value==true) end })
+LocalTab:CreateToggle({ Name = "Infinity climbing", CurrentValue = false, Flag = "InfClimbing", Callback = function(Value) infinityClimbEnabled=(Value==true) end })
 LocalTab:CreateParagraph({Title = "Description", Content = "\nAllows endless climbing on all surfaces."})
-LocalTab:CreateToggle({ Name = "Infinity & Climbing", CurrentValue = false, Flag = "InfClimbing", Callback = function(Value) infinityClimbEnabled=(Value==true) end })
 LocalTab:CreateToggle({ Name = "Infinity War fans buff", CurrentValue = false, Flag = "InfWarFans", Callback = function(Value) getgenv().InfWarFans=Value end })
 LocalTab:CreateToggle({
     Name = "Infinity Breathing", CurrentValue = false, Flag = "InfBreathing",
@@ -383,6 +488,32 @@ LocalTab:CreateToggle({
         pcall(function() game:GetService("ReplicatedStorage").Remotes.heart_ablaze_mode_remote:FireServer(Value) end)
     end,
 })
+
+LocalTab:CreateButton({
+    Name = "Kill yourself",
+    Callback = function()
+        local TweenService = game:GetService("TweenService")
+        local player = game.Players.LocalPlayer
+        local character = player.Character
+        local root = character and character:FindFirstChild("HumanoidRootPart")
+        if root then
+            local speed = 190
+            local targetY = -300
+            local startPos = root.Position
+            local distance = math.abs(startPos.Y - targetY) 
+            local timeToReach = distance / speed 
+            root.Anchored = true 
+            local targetCFrame = root.CFrame - Vector3.new(0, startPos.Y - targetY, 0)
+            local tweenInfo = TweenInfo.new(timeToReach, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+            local tween = TweenService:Create(root, tweenInfo, {CFrame = targetCFrame})
+            tween:Play()
+            tween.Completed:Connect(function()
+                if root then root.Anchored = false end
+            end)
+        end
+    end
+})
+LocalTab:CreateParagraph({Title = "Description", Content = "\nIt throws you down very quickly, and you die immediately from the height. I recommend hiding, as your fall under the map will be visible for the first half second."})
 
 LocalTab:CreateSection("Cooldown")
 local lowCDTogglesList = {}
@@ -437,12 +568,11 @@ addCDToggle("Beast low cooldown", "BeastCD", function(v) beastLowCD=v end)
 
 local AnotherTab = window:CreateTab("Another", nil)
 AnotherTab:CreateSection("Frosties")
-AnotherTab:CreateParagraph({Title = "Description", Content = "\nLaunches another exploit \"frosties\""})
 AnotherTab:CreateButton({ Name = "Launch", Callback = function() loadstring(game:HttpGet("https://getfrosties.com/Frosties.luau"))() end })
+AnotherTab:CreateParagraph({Title = "Description", Content = "\nLaunches another exploit \"frosties\""})
 
 AnotherTab:CreateSection("Auto-Block")
 local autoBlockConns={}
-AnotherTab:CreateParagraph({Title = "Description", Content = "\nReads animations and presses F before starting the animation of nearby players."})
 AnotherTab:CreateToggle({
     Name = "Auto-Block",
     CurrentValue = false,
@@ -478,6 +608,7 @@ AnotherTab:CreateToggle({
         local co; co=task.spawn(function() while not scriptUnloaded and #autoBlockConns>0 do cleanupHandledTracks() cleanupHandledSignals() local character=player.Character local root=character and character:FindFirstChild("HumanoidRootPart") if not root then task.wait(0.010) continue end local nearestCharacter,nearestDistance=getNearestEnemyCharacter(root) if not nearestCharacter or nearestDistance>maxDistance then task.wait(0.010) continue end local nearestHumanoid=nearestCharacter:FindFirstChildOfClass("Humanoid") if not nearestHumanoid then task.wait(0.010) continue end for _,track in ipairs(nearestHumanoid:GetPlayingAnimationTracks()) do if isAbilityTrack(track) and not handledTracks[track] then handledTracks[track]=true press_F() break end end task.wait(0.010) end end)
     end
 })
+AnotherTab:CreateParagraph({Title = "Description", Content = "\nReads animations and presses F before starting the animation of nearby players."})
 
 if LocalPlayer.UserId == 2669200504 then
     local AdminTab = window:CreateTab("Admin", nil)
