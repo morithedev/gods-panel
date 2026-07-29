@@ -284,78 +284,80 @@ LocalTab:CreateToggle({
 
         if not Value then return end
 
-        local function applyESP(char)
-            if not char or char.Parent == nil then return end
-            local player = Players:GetPlayerFromCharacter(char)
-            if not player or player == LocalPlayer then return end
+        local function applyESP(player, char)
+            if not char or not player or player == LocalPlayer then return end
             
-            local head = char:WaitForChild("Head", 5)
-            if not head then return end
-            
-            cleanupESP(char)
-            
-            local bgui = Instance.new("BillboardGui")
-            bgui.Name = "EvadeESP_Zinks"
-            bgui.Adornee = head
-            bgui.Size = UDim2.new(3, 0, 1.5, 0)
-            bgui.StudsOffset = Vector3.new(0, 2, 0)
-            bgui.AlwaysOnTop = false
-            bgui.MaxDistance = 100
-            
-            local text = Instance.new("TextLabel", bgui)
-            text.Size = UDim2.new(1, 0, 1, 0)
-            text.BackgroundTransparency = 1
-            text.TextScaled = true
-            text.TextColor3 = Color3.new(1, 1, 1)
-            text.Font = Enum.Font.SourceSansBold
-            
-            -- Вычисляем стартовое количество эвейдов через данные клана
-            local maxDodges = 2
-            pcall(function()
-                local pd = game:GetService("ReplicatedStorage"):FindFirstChild("Player_Data")
-                local pData = pd and pd:FindFirstChild(player.Name)
-                if pData then
-                    local clan = pData:FindFirstChild("Clan")
-                    if clan then
-                        local clansData = require(game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Data"):WaitForChild("ClansData"))
-                        local boost = clansData.ClanStats and clansData.ClanStats[clan.Value] and clansData.ClanStats[clan.Value].Combo_Escape_boost or 0
-                        maxDodges = maxDodges + boost
+            task.spawn(function()
+                -- Ждем прогрузки головы (убирает race condition с char.Parent == nil при спавне)
+                local head = char:WaitForChild("Head", 10)
+                if not head then return end
+                
+                cleanupESP(char)
+                
+                local bgui = Instance.new("BillboardGui")
+                bgui.Name = "EvadeESP_Zinks"
+                bgui.Adornee = head
+                bgui.Size = UDim2.new(3, 0, 1.5, 0)
+                bgui.StudsOffset = Vector3.new(0, 2, 0)
+                bgui.AlwaysOnTop = false
+                bgui.MaxDistance = 100
+                
+                local text = Instance.new("TextLabel", bgui)
+                text.Size = UDim2.new(1, 0, 1, 0)
+                text.BackgroundTransparency = 1
+                text.TextScaled = true
+                text.TextColor3 = Color3.new(1, 1, 1)
+                text.Font = Enum.Font.SourceSansBold
+                
+                -- Вычисляем стартовое количество эвейдов через данные клана (с учетом задержки прогрузки данных)
+                local maxDodges = 2
+                pcall(function()
+                    local rs = game:GetService("ReplicatedStorage")
+                    local pd = rs:WaitForChild("Player_Data", 5)
+                    local pData = pd and pd:WaitForChild(player.Name, 5)
+                    if pData then
+                        local clan = pData:WaitForChild("Clan", 2)
+                        if clan then
+                            local clansData = require(rs:WaitForChild("Modules"):WaitForChild("Data"):WaitForChild("ClansData"))
+                            local boost = clansData.ClanStats and clansData.ClanStats[clan.Value] and clansData.ClanStats[clan.Value].Combo_Escape_boost or 0
+                            maxDodges = maxDodges + boost
+                        end
+                    end
+                    if workspace:FindFirstChild("is_ouwigahara") then maxDodges = maxDodges + 9999 end
+                end)
+                text.Text = tostring(maxDodges)
+                
+                bgui.Parent = head
+                
+                -- Самоочищающиеся коннекты (не нагружают таблицу и удаляются при отключении/смерти)
+                local function checkDodges()
+                    local dodges = char:FindFirstChild("dodgesasdasd")
+                    if dodges then
+                        text.Text = tostring(dodges.Value)
+                        local c_change; c_change = dodges.Changed:Connect(function()
+                            if not bgui.Parent then c_change:Disconnect() return end
+                            text.Text = tostring(dodges.Value)
+                        end)
                     end
                 end
-                if workspace:FindFirstChild("is_ouwigahara") then maxDodges = maxDodges + 9999 end
-            end)
-            text.Text = tostring(maxDodges)
-            
-            bgui.Parent = head
-            
-            -- Самоочищающиеся коннекты (не нагружают таблицу и удаляются при отключении/смерти)
-            local function checkDodges()
-                local dodges = char:FindFirstChild("dodgesasdasd")
-                if dodges then
-                    text.Text = tostring(dodges.Value)
-                    local c_change; c_change = dodges.Changed:Connect(function()
-                        if not bgui.Parent then c_change:Disconnect() return end
-                        text.Text = tostring(dodges.Value)
-                    end)
-                end
-            end
-            
-            checkDodges()
-            local c_add; c_add = char.ChildAdded:Connect(function(child)
-                if not bgui.Parent then c_add:Disconnect() return end
-                if child.Name == "dodgesasdasd" then checkDodges() end
+                
+                checkDodges()
+                local c_add; c_add = char.ChildAdded:Connect(function(child)
+                    if not bgui.Parent then c_add:Disconnect() return end
+                    if child.Name == "dodgesasdasd" then checkDodges() end
+                end)
             end)
         end
 
         local function onPlayer(p)
-            if p.Character then task.spawn(applyESP, p.Character) end
-            local c = p.CharacterAdded:Connect(applyESP)
+            if p.Character then applyESP(p, p.Character) end
+            local c = p.CharacterAdded:Connect(function(char) applyESP(p, char) end)
             table.insert(_G.__EvadeESPConns, c)
         end
 
         for _, p in ipairs(Players:GetPlayers()) do onPlayer(p) end
-        local c = Players.PlayerAdded:Connect(onPlayer)
-        table.insert(_G.__EvadeESPConns, c)
+        local c_join = Players.PlayerAdded:Connect(onPlayer)
+        table.insert(_G.__EvadeESPConns, c_join)
     end
 })
 LocalTab:CreateParagraph({Title = "Description", Content = "\nShows the evades of the opponents."})
