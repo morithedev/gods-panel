@@ -205,8 +205,8 @@ changeValueFlood() end
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 local window = Rayfield:CreateWindow({
     Name = "God's panel.",
-    LoadingTitle = "Made by zdecro ( caster )",
-    LoadingSubtitle = "by Sirius",
+    LoadingTitle = "Made by zdecro",
+    LoadingSubtitle = "thanks zinks for some ideas",
     Theme = "Serenity",
     ConfigurationSaving = { Enabled = false, FileName = "GodsPanel" },
     Discord = { Enabled = false, Invite = "noenv", RememberJoins = true },
