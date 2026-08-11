@@ -205,7 +205,7 @@ changeValueFlood() end
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 local window = Rayfield:CreateWindow({
     Name = "God's panel.",
-    LoadingTitle = "Made by zdecro",
+    LoadingTitle = "Made by zdecro ( recursion )",
     LoadingSubtitle = "thanks zinks for some ideas",
     Theme = "Serenity",
     ConfigurationSaving = { Enabled = false, FileName = "GodsPanel" },
@@ -215,7 +215,7 @@ local window = Rayfield:CreateWindow({
 
 local InfoTab = window:CreateTab("Info", nil)
 InfoTab:CreateSection("Info")
-InfoTab:CreateParagraph({Title = "Description", Content = "\nThis script was created to simplify the gameplay, i do not promote hacking or cheating. The script was completely created by zdecro (seraphim). I also want to thank zinks for a lot of ideas. Have a good game."})
+InfoTab:CreateParagraph({Title = "Description", Content = "\nThis script was created to simplify the gameplay, i do not promote hacking or cheating. The script was completely created by zdecro (recursion). I also want to thank zinks for a lot of ideas. Have a good game."})
 
 local ServerTab = window:CreateTab("Server", nil)
 
