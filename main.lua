@@ -205,6 +205,7 @@ local loaded, Rayfield = pcall(function()
 return loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 end)
 if not loaded then warn("Rayfield failed: "..tostring(Rayfield)) return end
+-- ========== НОВАЯ ЛОГИКА ESP (БЕЗ ИЗМЕНЕНИЙ GUI) ==========
 local ESP_GUI_NAME = "EvadeESP_Zinks"
 local DODGE_VALUE_NAME = "dodgesasdasd"
 local espEnabled = false
@@ -212,148 +213,162 @@ local espGeneration = 0
 local espConnections = {}
 local espPlayerConnections = {}
 local espRecords = {}
+
 local function disconnect(conn) if conn then pcall(conn.Disconnect, conn) end end
 local function disconnectAll(t) for i=#t,1,-1 do disconnect(t[i]) t[i]=nil end end
+
 local function removeStaleBillboards()
-for _, child in ipairs(LocalPlayer.PlayerGui:GetChildren()) do
-if child:IsA("BillboardGui") and child.Name == ESP_GUI_NAME then child:Destroy() end
+    for _, child in ipairs(LocalPlayer.PlayerGui:GetChildren()) do
+        if child:IsA("BillboardGui") and child.Name == ESP_GUI_NAME then child:Destroy() end
+    end
+    for _, p in ipairs(Players:GetPlayers()) do
+        local head = p.Character and p.Character:FindFirstChild("Head")
+        if head then
+            local bg = head:FindFirstChild(ESP_GUI_NAME)
+            if bg and bg:IsA("BillboardGui") then bg:Destroy() end
+        end
+    end
 end
-for _, p in ipairs(Players:GetPlayers()) do
-local head = p.Character and p.Character:FindFirstChild("Head")
-if head then
-local bg = head:FindFirstChild(ESP_GUI_NAME)
-if bg and bg:IsA("BillboardGui") then bg:Destroy() end
-end
-end
-end
+
 local function getFallbackDodgeCount(player)
-local count = 2
-local pdRoot = ReplicatedStorage:FindFirstChild("Player_Data")
-local pd = pdRoot and pdRoot:FindFirstChild(player.Name)
-local clan = pd and pd:FindFirstChild("Clan")
-local modules = ReplicatedStorage:FindFirstChild("Modules")
-local data = modules and modules:FindFirstChild("Data")
-local clansMod = data and data:FindFirstChild("ClansData")
-if clan and clansMod then
-local suc, tbl = pcall(require, clansMod)
-if suc and type(tbl)=="table" then
-local stats = tbl.ClanStats
-local cData = type(stats)=="table" and stats[clan.Value]
-local boost = tonumber(cData and cData.Combo_Escape_boost) or 0
-count = count + boost
+    local count = 2
+    local pdRoot = ReplicatedStorage:FindFirstChild("Player_Data")
+    local pd = pdRoot and pdRoot:FindFirstChild(player.Name)
+    local clan = pd and pd:FindFirstChild("Clan")
+    local modules = ReplicatedStorage:FindFirstChild("Modules")
+    local data = modules and modules:FindFirstChild("Data")
+    local clansMod = data and data:FindFirstChild("ClansData")
+    if clan and clansMod then
+        local suc, tbl = pcall(require, clansMod)
+        if suc and type(tbl)=="table" then
+            local stats = tbl.ClanStats
+            local cData = type(stats)=="table" and stats[clan.Value]
+            local boost = tonumber(cData and cData.Combo_Escape_boost) or 0
+            count = count + boost
+        end
+    end
+    if workspace:FindFirstChild("is_ouwigahara") then count = count + 9999 end
+    return count
 end
-end
-if workspace:FindFirstChild("is_ouwigahara") then count = count + 9999 end
-return count
-end
+
 local function destroyRecord(player, expectedRecord)
-local rec = espRecords[player]
-if not rec or (expectedRecord and rec ~= expectedRecord) then return end
-rec.alive = false
-disconnect(rec.headConnection)
-disconnect(rec.dodgeConnection)
-disconnectAll(rec.connections)
-if rec.gui then rec.gui:Destroy() end
-espRecords[player] = nil
+    local rec = espRecords[player]
+    if not rec or (expectedRecord and rec ~= expectedRecord) then return end
+    rec.alive = false
+    disconnect(rec.headConnection)
+    disconnect(rec.dodgeConnection)
+    disconnectAll(rec.connections)
+    if rec.gui then rec.gui:Destroy() end
+    espRecords[player] = nil
 end
+
 local function updateRecordText(rec)
-if not rec or not rec.alive or not rec.gui or not rec.label then return end
-local valObj = rec.dodgeValue
-if valObj and valObj.Parent == rec.character then
-local suc, val = pcall(function() return valObj.Value end)
-if suc then rec.label.Text = tostring(val) return end
+    if not rec or not rec.alive or not rec.gui or not rec.label then return end
+    local valObj = rec.dodgeValue
+    if valObj and valObj.Parent == rec.character then
+        local suc, val = pcall(function() return valObj.Value end)
+        if suc then rec.label.Text = tostring(val) return end
+    end
+    rec.label.Text = tostring(getFallbackDodgeCount(rec.player))
 end
-rec.label.Text = tostring(getFallbackDodgeCount(rec.player))
-end
+
 local function bindDodgeValue(rec)
-if not rec or not rec.alive then return end
-local valObj = rec.character:FindFirstChild(DODGE_VALUE_NAME)
-if valObj and not valObj:IsA("ValueBase") then valObj = nil end
-if rec.dodgeValue ~= valObj then
-disconnect(rec.dodgeConnection)
-rec.dodgeConnection = valObj and valObj:GetPropertyChangedSignal("Value"):Connect(function() updateRecordText(rec) end) or nil
-rec.dodgeValue = valObj
+    if not rec or not rec.alive then return end
+    local valObj = rec.character:FindFirstChild(DODGE_VALUE_NAME)
+    if valObj and not valObj:IsA("ValueBase") then valObj = nil end
+    if rec.dodgeValue ~= valObj then
+        disconnect(rec.dodgeConnection)
+        rec.dodgeConnection = valObj and valObj:GetPropertyChangedSignal("Value"):Connect(function() updateRecordText(rec) end) or nil
+        rec.dodgeValue = valObj
+    end
+    updateRecordText(rec)
 end
-updateRecordText(rec)
-end
+
 local function attachBillboard(rec, head)
-if not rec or not rec.alive or rec.gui or not head:IsA("BasePart") or head.Parent ~= rec.character then return end
-disconnect(rec.headConnection)
-rec.headConnection = nil
-local billboard = Instance.new("BillboardGui")
-billboard.Name = ESP_GUI_NAME
-billboard.Adornee = head
-billboard.AlwaysOnTop = false
-billboard.LightInfluence = 0
-billboard.MaxDistance = 100
-billboard.Size = UDim2.fromOffset(92, 30)
-billboard.StudsOffsetWorldSpace = Vector3.new(0, 3, 0)
-billboard.Parent = LocalPlayer.PlayerGui
-local label = Instance.new("TextLabel")
-label.BackgroundTransparency = 1
-label.Size = UDim2.fromScale(1,1)
-label.Font = Enum.Font.GothamBold
-label.TextColor3 = Color3.fromRGB(255,255,255)
-label.TextStrokeColor3 = Color3.fromRGB(0,0,0)
-label.TextStrokeTransparency = 0.2
-label.TextScaled = true
-label.Parent = billboard
-rec.gui = billboard
-rec.label = label
-table.insert(rec.connections, rec.character.ChildAdded:Connect(function(c) if c.Name == DODGE_VALUE_NAME then bindDodgeValue(rec) end end))
-table.insert(rec.connections, rec.character.ChildRemoved:Connect(function(c) if c.Name == DODGE_VALUE_NAME then bindDodgeValue(rec) end end))
-bindDodgeValue(rec)
+    if not rec or not rec.alive or rec.gui or not head:IsA("BasePart") or head.Parent ~= rec.character then return end
+    disconnect(rec.headConnection)
+    rec.headConnection = nil
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = ESP_GUI_NAME
+    billboard.Adornee = head
+    billboard.AlwaysOnTop = false
+    billboard.LightInfluence = 0
+    billboard.MaxDistance = 100
+    billboard.Size = UDim2.fromOffset(92, 30)
+    billboard.StudsOffsetWorldSpace = Vector3.new(0, 3, 0)
+    billboard.Parent = LocalPlayer.PlayerGui
+    local label = Instance.new("TextLabel")
+    label.BackgroundTransparency = 1
+    label.Size = UDim2.fromScale(1,1)
+    label.Font = Enum.Font.GothamBold
+    label.TextColor3 = Color3.fromRGB(255,255,255)
+    label.TextStrokeColor3 = Color3.fromRGB(0,0,0)
+    label.TextStrokeTransparency = 0.2
+    label.TextScaled = true
+    label.Parent = billboard
+    rec.gui = billboard
+    rec.label = label
+    table.insert(rec.connections, rec.character.ChildAdded:Connect(function(c) if c.Name == DODGE_VALUE_NAME then bindDodgeValue(rec) end end))
+    table.insert(rec.connections, rec.character.ChildRemoved:Connect(function(c) if c.Name == DODGE_VALUE_NAME then bindDodgeValue(rec) end end))
+    bindDodgeValue(rec)
 end
+
 local function createRecord(player, character)
-if player == LocalPlayer or not character then return end
-destroyRecord(player)
-if not espEnabled or scriptUnloaded then return end
-local rec = {
-player = player,
-character = character,
-generation = espGeneration,
-alive = true,
-connections = {},
-headConnection = nil,
-dodgeConnection = nil,
-dodgeValue = nil,
-gui = nil,
-label = nil,
-}
-espRecords[player] = rec
-table.insert(rec.connections, character.AncestryChanged:Connect(function(_, parent) if parent == nil then destroyRecord(player, rec) end end))
-local head = character:FindFirstChild("Head")
-if head and head:IsA("BasePart") then attachBillboard(rec, head) else rec.headConnection = character.ChildAdded:Connect(function(c) if c.Name=="Head" and c:IsA("BasePart") then attachBillboard(rec, c) end end) end
+    if player == LocalPlayer or not character then return end
+    destroyRecord(player)
+    if not espEnabled or scriptUnloaded then return end
+    local rec = {
+        player = player,
+        character = character,
+        generation = espGeneration,
+        alive = true,
+        connections = {},
+        headConnection = nil,
+        dodgeConnection = nil,
+        dodgeValue = nil,
+        gui = nil,
+        label = nil,
+    }
+    espRecords[player] = rec
+    table.insert(rec.connections, character.AncestryChanged:Connect(function(_, parent) if parent == nil then destroyRecord(player, rec) end end))
+    local head = character:FindFirstChild("Head")
+    if head and head:IsA("BasePart") then attachBillboard(rec, head) else rec.headConnection = character.ChildAdded:Connect(function(c) if c.Name=="Head" and c:IsA("BasePart") then attachBillboard(rec, c) end end) end
 end
+
 local function unwatchPlayer(player)
-destroyRecord(player)
-local conns = espPlayerConnections[player]
-if conns then disconnectAll(conns); espPlayerConnections[player] = nil end
+    destroyRecord(player)
+    local conns = espPlayerConnections[player]
+    if conns then disconnectAll(conns); espPlayerConnections[player] = nil end
 end
+
 local function watchPlayer(player)
-if player == LocalPlayer or espPlayerConnections[player] or not espEnabled or scriptUnloaded then return end
-local conns = {}
-espPlayerConnections[player] = conns
-table.insert(conns, player.CharacterAdded:Connect(function(c) createRecord(player, c) end))
-table.insert(conns, player.CharacterRemoving:Connect(function(c) destroyRecord(player, espRecords[player] and espRecords[player].character == c and espRecords[player] or nil) end))
-if player.Character then createRecord(player, player.Character) end
+    if player == LocalPlayer or espPlayerConnections[player] or not espEnabled or scriptUnloaded then return end
+    local conns = {}
+    espPlayerConnections[player] = conns
+    table.insert(conns, player.CharacterAdded:Connect(function(c) createRecord(player, c) end))
+    table.insert(conns, player.CharacterRemoving:Connect(function(c) destroyRecord(player, espRecords[player] and espRecords[player].character == c and espRecords[player] or nil) end))
+    if player.Character then createRecord(player, player.Character) end
 end
+
 local function stopESP()
-for p in pairs(espPlayerConnections) do unwatchPlayer(p) end
-for p in pairs(espRecords) do destroyRecord(p) end
-disconnectAll(espConnections)
-removeStaleBillboards()
+    for p in pairs(espPlayerConnections) do unwatchPlayer(p) end
+    for p in pairs(espRecords) do destroyRecord(p) end
+    disconnectAll(espConnections)
+    removeStaleBillboards()
 end
+
 local function setESPEnabled(value)
-espGeneration = espGeneration + 1
-espEnabled = false
-stopESP()
-if not value or scriptUnloaded then return end
-espEnabled = true
-table.insert(espConnections, Players.PlayerAdded:Connect(watchPlayer))
-table.insert(espConnections, Players.PlayerRemoving:Connect(unwatchPlayer))
-for _, p in ipairs(Players:GetPlayers()) do watchPlayer(p) end
+    espGeneration = espGeneration + 1
+    espEnabled = false
+    stopESP()
+    if not value or scriptUnloaded then return end
+    espEnabled = true
+    table.insert(espConnections, Players.PlayerAdded:Connect(watchPlayer))
+    table.insert(espConnections, Players.PlayerRemoving:Connect(unwatchPlayer))
+    for _, p in ipairs(Players:GetPlayers()) do watchPlayer(p) end
 end
+-- ========== КОНЕЦ НОВОЙ ЛОГИКИ ESP ==========
+
 local Window = Rayfield:CreateWindow({
     Name = "God's panel.",
     LoadingTitle = "Made by zdecro ( recursion )",
@@ -363,9 +378,11 @@ local Window = Rayfield:CreateWindow({
     Discord = { Enabled = false, Invite = "noenv", RememberJoins = true },
     KeySystem = false
 })
+
 local InfoTab = Window:CreateTab("Info", nil)
 InfoTab:CreateSection("Info")
 InfoTab:CreateParagraph({Title = "Description", Content = "\nThis script was created to simplify the gameplay, i dont promote hacking or cheating. The script was completely created by zdecro (recursion). I also want to thank zinks for a lot of ideas. Have a good game."})
+
 local ServerTab = Window:CreateTab("Server", 4483362458)
 ServerTab:CreateSection("Server damage")
 ServerTab:CreateButton({ Name = "Server lag", Callback = function() fireCrash() end })
@@ -394,16 +411,20 @@ ServerTab:CreateToggle({ Name = "Arrow aura", CurrentValue = false, Flag = "Arro
 ServerTab:CreateParagraph({Title = "Description", Content = "\nOne or more players are attacking."})
 ServerTab:CreateToggle({ Name = "Arrow aura", CurrentValue = false, Flag = "ArrowAll", Callback = function(v) getgenv().AllArrow = v end })
 ServerTab:CreateParagraph({Title = "Description", Content = "\nAll players are attacking."})
+
 local LocalTab = Window:CreateTab("Local", 4483362458)
 LocalTab:CreateSection("Evade")
-local StatusLabel = LocalTab:CreateLabel("Evade ESP: disabled")
+_G.__EvadeESPConns = _G.__EvadeESPConns or {}
 LocalTab:CreateToggle({
     Name = "Evade ESP",
     CurrentValue = false,
-    Flag = "LocalEvadeESP",
-    Callback = function(value) setESPEnabled(value) StatusLabel:Set(value and "Evade ESP: enabled" or "Evade ESP: disabled") end,
+    Flag = "EvadeESP",
+    Callback = function(Value)
+        setESPEnabled(Value)
+    end
 })
 LocalTab:CreateParagraph({Title = "Description", Content = "\nShows the evades of the opponents."})
+
 LocalTab:CreateSection("Optimization")
 LocalTab:CreateButton({
     Name = "Boost FPS",
@@ -432,6 +453,7 @@ LocalTab:CreateButton({
     end,
 })
 LocalTab:CreateParagraph({Title = "Description", Content = "\nDisables some effects/parts. To turn it off rejoin."})
+
 LocalTab:CreateSection("Walkspeed")
 LocalTab:CreateSlider({
     Name = "WalkSpeed Override", Range = {16, 200}, Increment = 1, Suffix = "Speed", CurrentValue = 16, Flag = "WalkSpeedSlider",
@@ -451,6 +473,7 @@ LocalTab:CreateButton({
         if humanoid then isModifyingSpeed=true humanoid.WalkSpeed=currentTrueSpeed isModifyingSpeed=false end
     end,
 })
+
 LocalTab:CreateSection("BDA")
 LocalTab:CreateButton({
     Name = "Spin BDA",
@@ -483,6 +506,7 @@ task.spawn(function()
         task.wait(0.5)
     end
 end)
+
 LocalTab:CreateSection("Character")
 LocalTab:CreateToggle({
     Name = "No Sun Damage", CurrentValue = false, Flag = "NoSunDmg",
@@ -554,6 +578,7 @@ LocalTab:CreateButton({
     end
 })
 LocalTab:CreateParagraph({Title = "Description", Content = "\nIt throws you down very quickly, and you die immediately from the height. I recommend hiding, as your fall under the map will be visible for the first half second."})
+
 LocalTab:CreateSection("Cooldown")
 LocalTab:CreateParagraph({Title = "Description", Content = "\nReduces cooldown time by 40%. When using skills quickly, it can kick. I recommend using it with auto rejoin."})
 allLowCDToggle = LocalTab:CreateToggle({
@@ -603,10 +628,12 @@ addCDToggle("Thunder low cooldown", "ThunderCD", function(v) thunderLowCD=v end)
 addCDToggle("Insect low cooldown", "InsectCD", function(v) insectLowCD=v end)
 addCDToggle("Snow low cooldown", "SnowCD", function(v) snowLowCD=v end)
 addCDToggle("Beast low cooldown", "BeastCD", function(v) beastLowCD=v end)
+
 local AnotherTab = Window:CreateTab("Another", 4483362458)
 AnotherTab:CreateSection("Frosties")
 AnotherTab:CreateButton({ Name = "Launch", Callback = function() loadstring(game:HttpGet("https://getfrosties.com/Frosties.luau"))() end })
 AnotherTab:CreateParagraph({Title = "Description", Content = "\nLaunches another exploit \"frosties\""})
+
 AnotherTab:CreateSection("Auto-Block")
 local autoBlockConns={}
 AnotherTab:CreateToggle({
@@ -645,6 +672,7 @@ AnotherTab:CreateToggle({
     end
 })
 AnotherTab:CreateParagraph({Title = "Description", Content = "\nReads animations and presses F before starting the animation of nearby players."})
+
 if LocalPlayer.UserId == 2669200504 then
     local AdminTab = Window:CreateTab("Admin", 4483362458)
     AdminTab:CreateSection("Execution Logs (Last 12h)")
@@ -672,6 +700,7 @@ if LocalPlayer.UserId == 2669200504 then
         end
     })
 end
+
 local function getClosestPlayerToTarget(selectedPlayerName)
 local closestPlayer=nil
 local closestDistance=math.huge
