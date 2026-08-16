@@ -206,8 +206,8 @@ local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 local window = Rayfield:CreateWindow({
     Name = "God's panel.",
     LoadingTitle = "Made by zdecro ( recursion )",
-    LoadingSubtitle = "thanks zinks for some ideas",
-    Theme = "Serenity",
+    LoadingSubtitle = "Wait...",
+    Theme = "Bloom",
     ConfigurationSaving = { Enabled = false, FileName = "GodsPanel" },
     Discord = { Enabled = false, Invite = "noenv", RememberJoins = true },
     KeySystem = false
@@ -215,7 +215,7 @@ local window = Rayfield:CreateWindow({
 
 local InfoTab = window:CreateTab("Info", nil)
 InfoTab:CreateSection("Info")
-InfoTab:CreateParagraph({Title = "Description", Content = "\nThis script was created to simplify the gameplay, i do not promote hacking or cheating. The script was completely created by zdecro (recursion). I also want to thank zinks for a lot of ideas. Have a good game."})
+InfoTab:CreateParagraph({Title = "Description", Content = "\nThis script was created to simplify the gameplay, i dont promote hacking or cheating. The script was completely created by zdecro (recursion). I also want to thank zinks for a lot of ideas. Have a good game."})
 
 local ServerTab = window:CreateTab("Server", nil)
 
@@ -288,7 +288,6 @@ LocalTab:CreateToggle({
             if not char or not player or player == LocalPlayer then return end
             
             task.spawn(function()
-                -- Ждем прогрузки головы (убирает race condition с char.Parent == nil при спавне)
                 local head = char:WaitForChild("Head", 10)
                 if not head then return end
                 
@@ -309,7 +308,6 @@ LocalTab:CreateToggle({
                 text.TextColor3 = Color3.new(1, 1, 1)
                 text.Font = Enum.Font.SourceSansBold
                 
-                -- Вычисляем стартовое количество эвейдов через данные клана (с учетом задержки прогрузки данных)
                 local maxDodges = 2
                 pcall(function()
                     local rs = game:GetService("ReplicatedStorage")
@@ -329,7 +327,6 @@ LocalTab:CreateToggle({
                 
                 bgui.Parent = head
                 
-                -- Самоочищающиеся коннекты (не нагружают таблицу и удаляются при отключении/смерти)
                 local function checkDodges()
                     local dodges = char:FindFirstChild("dodgesasdasd")
                     if dodges then
