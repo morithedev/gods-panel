@@ -283,7 +283,7 @@ rec.headConnection = nil
 local billboard = Instance.new("BillboardGui")
 billboard.Name = ESP_GUI_NAME
 billboard.Adornee = head
-billboard.AlwaysOnTop = true
+billboard.AlwaysOnTop = false
 billboard.LightInfluence = 0
 billboard.MaxDistance = 100
 billboard.Size = UDim2.fromOffset(92, 30)
@@ -361,7 +361,7 @@ LoadingTitle = "Made by zdecro ( recursion )",
 LoadingSubtitle = "Wait...",
 ShowText = "GodPanel",
 Theme = "Bloom",
-ToggleUIKeybind = "RightControl",
+ToggleUIKeybind = Enum.KeyCode.RightControl,
 DisableRayfieldPrompts = false,
 DisableBuildWarnings = false,
 ConfigurationSaving = { Enabled = false, FileName = "GodsPanel" },
