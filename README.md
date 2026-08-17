@@ -5,3 +5,5 @@
 
 some players called my script “AI trash” so in the next update o plan to add something interesting that will eliminate the need for other scripts.
 ill start rn
+
+Phase 1 - done
