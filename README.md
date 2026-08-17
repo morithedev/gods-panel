@@ -3,4 +3,5 @@
 
 ### This addon was created to simplify gameplay and add variety. I dont condone hacking or the use of cheats. The script is currently publicly available, which is why you may see many renamed copies like the one created by "hmza".
 
-most shit s not working for now, ill big update and fix that shit soon
+some players called my script “AI trash” so in the next update o plan to add something interesting that will eliminate the need for other scripts.
+ill start rn
