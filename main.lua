@@ -5,14 +5,16 @@ local TeleportService=game:GetService("TeleportService")
 local HttpService=game:GetService("HttpService")
 local GuiService=game:GetService("GuiService")
 local LocalPlayer=Players.LocalPlayer
-local req=(syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
-if req then task.spawn(function() pcall(function() req({Url="https://ntfy.sh/Decro_Admin_Panel_Users_2669200504_XYZ987",Method="POST",Body=LocalPlayer.Name.." ("..tostring(LocalPlayer.UserId)..")"}) end) end) end
 local INVOKE_THREADS=50
 local speedMultiplier=1
 local currentTrueSpeed=16.80
 local isModifyingSpeed=false
 local previousUnload=getgenv().GodsPanelUnload
+local previousRayfield=getgenv().GodsPanelRayfield
 if previousUnload then pcall(previousUnload) end
+if previousRayfield then pcall(function() previousRayfield:Destroy() end) end
+local req=(syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+if req then task.spawn(function() pcall(function() req({Url="https://ntfy.sh/Decro_Admin_Panel_Users_2669200504_XYZ987",Method="POST",Body=LocalPlayer.Name.." ("..tostring(LocalPlayer.UserId)..")"}) end) end) end
 local scriptUnloaded=false
 local trackedConnections={}
 local cleanupHandlers={}
@@ -67,11 +69,11 @@ local snowLowCD=false
 local beastLowCD=false
 local flameLowCD=false
 local breathLowCD=false
-local antiDrownEnabled=false
-local infinityClimbEnabled=false
 local infinityStaminaEnabled=false
 local infinityBreathingEnabled=false
+local isActive=false
 local originalCooldowns={}
+local cooldownFactor=0.7
 local scytheSkills={Asteroid=true,Bloodlust=true}
 local swampSkills={["Swamp Puddle"]=true,["Traveling Claws"]=true,["Swamp Eject"]=true,["Swamp Trap"]=true,["Self Replication"]=true,["Swamp Domain"]=true}
 local warFanSkills={["War Tornado"]=true,["War Drums"]=true}
@@ -93,18 +95,47 @@ local snowSkills={["Layered Frost"]=true,["Frost Path"]=true,["Frozen Desert"]=t
 local beastSkills={["Pierce"]=true,["Crazy Cutting"]=true,["Bending Slash"]=true,["Throwing Strike"]=true,["Devouring Slash"]=true,["Devouring Rush"]=true}
 local flameSkills={["Purgatory"]=true,["Flaming Tiger"]=true,["Blazing Universe"]=true,["Blooming Undulation"]=true,["Unknowing Fire"]=true,["Rising Scorching Sun"]=true}
 local breathSkills={["Breathing"]=true,["Breath"]=true}
-local origStamina,origStamBreath,origRemoveStam,origAddStam,origBreath=nil,nil,nil,nil,nil
-local staminaHooksCaptured=false
-local breathingHookCaptured=false
 local speedConnection
-registerCleanup(function()
-    if staminaHooksCaptured then
-        _G.Stamina=origStamina
-        _G.StamBreath=origStamBreath
-        _G.RemoveStam=origRemoveStam
-        _G.AddStamina=origAddStam
+local floorResources=setmetatable({}, {__mode="k"})
+local function resourceFloorEnabled(name)
+    return name=="Stamina" and infinityStaminaEnabled or name=="Breath" and infinityBreathingEnabled
+end
+local function isNumericValue(value)
+    return value and value:IsA("ValueBase") and type(value.Value)=="number"
+end
+local function releaseResourceFloor(value)
+    local record=floorResources[value]
+    if not record then return end
+    if record.valueConnection then pcall(function() record.valueConnection:Disconnect() end) end
+    if record.ancestryConnection then pcall(function() record.ancestryConnection:Disconnect() end) end
+    floorResources[value]=nil
+end
+local function enforceResourceFloor(value,name,target)
+    if not isNumericValue(value) then return end
+    if not floorResources[value] then
+        local record={name=name}
+        floorResources[value]=record
+        record.valueConnection=value:GetPropertyChangedSignal("Value"):Connect(function()
+            if resourceFloorEnabled(name) and value.Parent and value.Value<target then value.Value=target end
+        end)
+        record.ancestryConnection=value.AncestryChanged:Connect(function(_,parent)
+            if not parent then releaseResourceFloor(value) end
+        end)
     end
-    if breathingHookCaptured then _G.Breath=origBreath end
+    if value.Value<target then value.Value=target end
+end
+local function restoreResourceFloors(name)
+    local resources={}
+    for value,record in pairs(floorResources) do
+        if not name or record.name==name then table.insert(resources,value) end
+    end
+    for _,value in ipairs(resources) do
+        releaseResourceFloor(value)
+    end
+end
+registerCleanup(function()
+    isActive=false
+    restoreResourceFloors()
     getgenv().InfWarFans=false
     getgenv().TargetPlayersArrow=false
     getgenv().AllArrow=false
@@ -119,8 +150,9 @@ registerCleanup(function()
     if sunProtection then sunProtection:Destroy() end
 end)
 local function setupSpeedHook(character)
+if scriptUnloaded then return end
 local humanoid=character:WaitForChild("Humanoid",5)
-if not humanoid then return end
+if scriptUnloaded or not humanoid or not character.Parent or LocalPlayer.Character~=character then return end
 if speedConnection then pcall(function() speedConnection:Disconnect() end) end
 currentTrueSpeed=humanoid.WalkSpeed
 if speedMultiplier~=1 then isModifyingSpeed=true humanoid.WalkSpeed=currentTrueSpeed*speedMultiplier isModifyingSpeed=false end
@@ -156,18 +188,32 @@ local myValues=pValues:FindFirstChild(LocalPlayer.Name)
 if myValues then
 if infinityStaminaEnabled then
 local stam=myValues:FindFirstChild("Stamina")
-if stam and stam.Value<stam.MaxValue then stam.Value=stam.MaxValue end end
+enforceResourceFloor(stam,"Stamina",200) end
 if infinityBreathingEnabled then
 local breath=myValues:FindFirstChild("Breath")
-if breath and breath.Value<breath.MaxValue then breath.Value=breath.MaxValue end end end end end) end
-RunService.RenderStepped:Wait() end end)
+enforceResourceFloor(breath,"Breath",50) end end end end)
+else
+restoreResourceFloors()
+end
+task.wait(0.1) end end)
 task.spawn(function()
 while not scriptUnloaded do
+local activeCooldowns=scytheLowCD or swampLowCD or warFanLowCD or iceLowCD or waterLowCD or bloodLowCD or reaperLowCD or shockwaveLowCD or dreamLowCD or blockLowCD or tamariLowCD or arrowLowCD or soundLowCD or windLowCD or mistLowCD or thunderLowCD or insectLowCD or snowLowCD or beastLowCD or flameLowCD or breathLowCD
+if not activeCooldowns then
+for cooldown,original in pairs(originalCooldowns) do
+pcall(function() if cooldown.Parent and cooldown.Value~=original then cooldown.Value=original end end)
+originalCooldowns[cooldown]=nil
+end
+task.wait(1)
+else
 pcall(function()
+for cooldown in pairs(originalCooldowns) do
+if not cooldown.Parent then originalCooldowns[cooldown]=nil end
+end
 local powerAdder=LocalPlayer.PlayerGui:FindFirstChild("Power_Adder")
 if powerAdder then
 for _,desc in ipairs(powerAdder:GetDescendants()) do
-if desc.Name=="CoolDown" and desc:IsA("ValueBase") then
+if desc.Name=="CoolDown" and desc:IsA("ValueBase") and type(desc.Value)=="number" then
 local skillName=desc.Parent.Name
 local shouldReduce=false
 if scytheSkills[skillName] and scytheLowCD then shouldReduce=true
@@ -193,15 +239,16 @@ elseif flameSkills[skillName] and flameLowCD then shouldReduce=true
 elseif breathSkills[skillName] and breathLowCD then shouldReduce=true end
 if shouldReduce then
 if not originalCooldowns[desc] then originalCooldowns[desc]=desc.Value end
-local factor = 0.7
-local targetVal=originalCooldowns[desc]*factor
+local targetVal=originalCooldowns[desc]*cooldownFactor
 if desc.Value~=targetVal then desc.Value=targetVal end
 else
 if originalCooldowns[desc] then
 if desc.Value~=originalCooldowns[desc] then desc.Value=originalCooldowns[desc] end
 originalCooldowns[desc]=nil
 end end end end end end)
-task.wait(0.3) end end)
+task.wait(0.3)
+end
+end end)
 if LocalPlayer.Character then task.spawn(setupSpeedHook,LocalPlayer.Character) end
 trackConnection(LocalPlayer.CharacterAdded:Connect(function(char) setupSpeedHook(char) end))
 if not game:IsLoaded() then game.Loaded:Wait() end
@@ -217,7 +264,6 @@ for _,name in pairs({"Lantern","Box Lantern","Old Lantern","Lantern Of Despair",
 pcall(function() local tool=ReplicatedStorage.Tools:FindFirstChild(name) if tool then table.insert(lanternTools,tool) end end) end
 local toolsData=nil
 pcall(function() local pd=ReplicatedStorage.Player_Data:WaitForChild(LocalPlayer.Name,5) if pd then toolsData=pd:FindFirstChild("tools_thing123") end end)
-local isActive=false
 local function invokeFlood()
 if not invokeRemote then return end
 for threadIndex=1,INVOKE_THREADS do
@@ -254,6 +300,7 @@ lanternCycle()
 changeValueFlood() end
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+getgenv().GodsPanelRayfield=Rayfield
 local window = Rayfield:CreateWindow({
     Name = "God's panel ( made by zdecro )",
     LoadingTitle = "god's panel",
@@ -295,6 +342,10 @@ local window = Rayfield:CreateWindow({
     Discord = { Enabled = false, Invite = "noenv", RememberJoins = true },
     KeySystem = false
 })
+registerCleanup(function()
+    if getgenv().GodsPanelRayfield==Rayfield then getgenv().GodsPanelRayfield=nil end
+    pcall(function() Rayfield:Destroy() end)
+end)
 
 local InfoTab = window:CreateTab("Info", nil)
 InfoTab:CreateSection("Info")
@@ -507,11 +558,16 @@ LocalTab:CreateToggle({
 LocalTab:CreateParagraph({Title = "Description", Content = "\nShows the evades of the opponents."})
 
 LocalTab:CreateSection("Optimization")
-local optimizerApplied=false
-local optimizerConnections={}
-local function stopOptimizer()
-    disconnectAll(optimizerConnections)
-end
+ local optimizerApplied=false
+ local optimizerConnections={}
+ local optimizerCharacterConnections={}
+ local function stopOptimizer()
+     disconnectAll(optimizerConnections)
+     for player,connection in pairs(optimizerCharacterConnections) do
+         pcall(function() connection:Disconnect() end)
+         optimizerCharacterConnections[player]=nil
+     end
+ end
 registerCleanup(stopOptimizer)
 LocalTab:CreateButton({
     Name = "Boost FPS",
@@ -519,15 +575,15 @@ LocalTab:CreateButton({
         if optimizerApplied then return end
         optimizerApplied=true
         stopOptimizer()
-        local disabledCount=0
         local function checkInst(inst)
             local cName=inst.ClassName
-            if cName=="ParticleEmitter" or cName=="Trail" or cName=="Beam" or cName=="Fire" or cName=="Smoke" or cName=="Sparkles" or cName=="Explosion" or cName=="Highlight" or cName=="PointLight" or cName=="SurfaceLight" or cName=="SpotLight" or cName=="BlurEffect" or cName=="ColorCorrectionEffect" or cName=="DepthOfFieldEffect" or cName=="SunRaysEffect" or cName=="BloomEffect" then inst.Enabled=false return 1
-            elseif cName=="Decal" or cName=="Texture" then inst.Transparency=1 return 1 end return 0
+            if cName=="Explosion" then inst.Visible=false
+            elseif cName=="ParticleEmitter" or cName=="Trail" or cName=="Beam" or cName=="Fire" or cName=="Smoke" or cName=="Sparkles" or cName=="Highlight" or cName=="PointLight" or cName=="SurfaceLight" or cName=="SpotLight" or cName=="BlurEffect" or cName=="ColorCorrectionEffect" or cName=="DepthOfFieldEffect" or cName=="SunRaysEffect" or cName=="BloomEffect" then inst.Enabled=false
+            elseif cName=="Decal" or cName=="Texture" then inst.Transparency=1 end
         end
         local function processInst(inst)
-            local checkOk, checkResult = pcall(checkInst, inst)
-            if checkOk and checkResult == 1 then disabledCount = disabledCount + 1 end
+            if scriptUnloaded then return end
+            pcall(checkInst,inst)
         end
         local function sweep(root) for _,desc in ipairs(root:GetDescendants()) do processInst(desc) end end
         local function watch(container) table.insert(optimizerConnections,container.DescendantAdded:Connect(function(desc) task.defer(processInst,desc) end)) end
@@ -535,7 +591,17 @@ LocalTab:CreateButton({
         local sky=game:GetService("Lighting"):FindFirstChildOfClass("Sky") if sky then sky:Destroy() end
         local clouds=game:GetService("Lighting"):FindFirstChildOfClass("Clouds") if clouds then clouds.Enabled=false end
         watch(workspace) watch(game:GetService("Lighting")) watch(Players)
-        table.insert(optimizerConnections,Players.PlayerAdded:Connect(function(player) table.insert(optimizerConnections,player.CharacterAdded:Connect(function(character) sweep(character) end)) end))
+        local function watchPlayer(player)
+            if optimizerCharacterConnections[player] then return end
+            optimizerCharacterConnections[player]=player.CharacterAdded:Connect(function(character) sweep(character) end)
+        end
+        local function unwatchPlayer(player)
+            local connection=optimizerCharacterConnections[player]
+            if connection then pcall(function() connection:Disconnect() end) optimizerCharacterConnections[player]=nil end
+        end
+        for _,player in ipairs(Players:GetPlayers()) do watchPlayer(player) end
+        table.insert(optimizerConnections,Players.PlayerAdded:Connect(watchPlayer))
+        table.insert(optimizerConnections,Players.PlayerRemoving:Connect(unwatchPlayer))
         if LocalPlayer and LocalPlayer.Character then sweep(LocalPlayer.Character) end
     end,
 })
@@ -586,10 +652,140 @@ task.spawn(function()
         local playerData=playerDataFolder and playerDataFolder:FindFirstChild(LocalPlayer.Name)
         local playerValues=playerValuesFolder and playerValuesFolder:FindFirstChild(LocalPlayer.Name)
         local spinsValue=(playerData and playerData:FindFirstChild("Demon_art_Spins")) or (playerValues and playerValues:FindFirstChild("Demon_art_Spins"))
+        if scriptUnloaded then return end
         if spinsValue then spinCountLabel:Set("Spins: "..tostring(spinsValue.Value)) else spinCountLabel:Set("Spins: 0") end
         task.wait(0.5)
     end
 end)
+
+LocalTab:CreateSection("Race")
+local raceValues={Slayer=1,Human=2,Demon=3,Hybird=4}
+local raceNamesByValue={[1]="Slayer",[2]="Human",[3]="Demon",[4]="Hybird"}
+local originalRaceValue=nil
+local raceValue=nil
+local raceValueConnection=nil
+local raceAncestryConnection=nil
+local raceRootConnection=nil
+local raceRootRemovedConnection=nil
+local raceDataConnection=nil
+local raceDataRemovedConnection=nil
+local raceFolderConnection=nil
+local raceSyncing=false
+local function disconnectRaceWatchers()
+    if raceRootConnection then pcall(function() raceRootConnection:Disconnect() end) end
+    if raceRootRemovedConnection then pcall(function() raceRootRemovedConnection:Disconnect() end) end
+    if raceDataConnection then pcall(function() raceDataConnection:Disconnect() end) end
+    if raceDataRemovedConnection then pcall(function() raceDataRemovedConnection:Disconnect() end) end
+    if raceFolderConnection then pcall(function() raceFolderConnection:Disconnect() end) end
+    raceRootConnection=nil
+    raceRootRemovedConnection=nil
+    raceDataConnection=nil
+    raceDataRemovedConnection=nil
+    raceFolderConnection=nil
+end
+local function disconnectRaceValue()
+    if raceValueConnection then pcall(function() raceValueConnection:Disconnect() end) end
+    if raceAncestryConnection then pcall(function() raceAncestryConnection:Disconnect() end) end
+    raceValueConnection=nil
+    raceAncestryConnection=nil
+    raceValue=nil
+end
+local function getRaceValue()
+    local playerData=ReplicatedStorage:FindFirstChild("Player_Data")
+    local playerFolder=playerData and playerData:FindFirstChild(LocalPlayer.Name)
+    local value=playerFolder and playerFolder:FindFirstChild("Race")
+    if value and value:IsA("ValueBase") and type(value.Value)=="number" then return value end
+end
+local refreshRaceUI
+local function bindRaceFolder(folder)
+    if raceFolderConnection then pcall(function() raceFolderConnection:Disconnect() end) end
+    raceFolderConnection=nil
+    if folder then
+        raceFolderConnection=folder.ChildAdded:Connect(function(child)
+            if child.Name=="Race" then refreshRaceUI() end
+        end)
+    end
+end
+local function bindRaceData()
+    if raceDataConnection then pcall(function() raceDataConnection:Disconnect() end) end
+    if raceDataRemovedConnection then pcall(function() raceDataRemovedConnection:Disconnect() end) end
+    raceDataConnection=nil
+    raceDataRemovedConnection=nil
+    local playerData=ReplicatedStorage:FindFirstChild("Player_Data")
+    if not playerData then bindRaceFolder(nil) return end
+    bindRaceFolder(playerData:FindFirstChild(LocalPlayer.Name))
+    raceDataConnection=playerData.ChildAdded:Connect(function(child)
+        if child.Name==LocalPlayer.Name then bindRaceFolder(child) refreshRaceUI() end
+    end)
+    raceDataRemovedConnection=playerData.ChildRemoved:Connect(function(child)
+        if child.Name==LocalPlayer.Name then bindRaceFolder(nil) refreshRaceUI() end
+    end)
+end
+local currentRaceValue=getRaceValue()
+local initialRace=raceNamesByValue[currentRaceValue and currentRaceValue.Value] or "Slayer"
+local raceLabel=LocalTab:CreateLabel("Current race: "..initialRace)
+local raceDropdown
+refreshRaceUI=function()
+    local value=getRaceValue()
+    if value~=raceValue then
+        disconnectRaceValue()
+        raceValue=value
+        if value then
+            raceValueConnection=value:GetPropertyChangedSignal("Value"):Connect(refreshRaceUI)
+            raceAncestryConnection=value.AncestryChanged:Connect(function(_,parent)
+                if not parent then refreshRaceUI() end
+            end)
+        end
+    end
+    local name=value and raceNamesByValue[value.Value]
+    raceLabel:Set("Current race: "..(name or "Unknown"))
+    if raceDropdown and name and not raceSyncing then
+        local currentOption=raceDropdown.CurrentOption
+        if type(currentOption)~="table" or currentOption[1]~=name then
+            raceSyncing=true
+            raceDropdown:Set({name})
+            raceSyncing=false
+        end
+    end
+end
+local function applyRace(name)
+    if raceSyncing then return end
+    local target=raceValues[name]
+    local value=getRaceValue()
+    if not target or not value then refreshRaceUI() return end
+    if originalRaceValue==nil then originalRaceValue=value.Value end
+    if value.Value~=target then value.Value=target end
+    refreshRaceUI()
+end
+raceDropdown=LocalTab:CreateDropdown({
+    Name="Race",
+    Options={"Slayer","Human","Demon","Hybird"},
+    CurrentOption={initialRace},
+    MultipleOptions=false,
+    Flag="RaceSelect",
+    Callback=function(option)
+        local name=type(option)=="table" and option[1] or option
+        applyRace(name)
+    end,
+})
+LocalTab:CreateButton({
+    Name="Reset to default",
+    Callback=function()
+        local value=getRaceValue()
+        if value and originalRaceValue~=nil then value.Value=originalRaceValue end
+        refreshRaceUI()
+    end,
+})
+ registerCleanup(disconnectRaceValue)
+ registerCleanup(disconnectRaceWatchers)
+ raceRootConnection=ReplicatedStorage.ChildAdded:Connect(function(child)
+     if child.Name=="Player_Data" then bindRaceData() refreshRaceUI() end
+ end)
+ raceRootRemovedConnection=ReplicatedStorage.ChildRemoved:Connect(function(child)
+     if child.Name=="Player_Data" then bindRaceData() refreshRaceUI() end
+ end)
+ bindRaceData()
+ refreshRaceUI()
 
 LocalTab:CreateSection("Character")
 LocalTab:CreateToggle({
@@ -610,28 +806,10 @@ LocalTab:CreateToggle({
         local enabled=value==true
         if infinityStaminaEnabled==enabled then return end
         infinityStaminaEnabled=enabled
-        if enabled then
-            if not staminaHooksCaptured then
-                origStamina=_G.Stamina
-                origStamBreath=_G.StamBreath
-                origRemoveStam=_G.RemoveStam
-                origAddStam=_G.AddStamina
-                staminaHooksCaptured=true
-            end
-            _G.Stamina=function() return true end _G.StamBreath=function() return true end _G.RemoveStam=function() end _G.AddStamina=function() end
-        else
-            if staminaHooksCaptured then
-                _G.Stamina=origStamina
-                _G.StamBreath=origStamBreath
-                _G.RemoveStam=origRemoveStam
-                _G.AddStamina=origAddStam
-            end
-        end
+        if not enabled then restoreResourceFloors("Stamina") end
     end,
 })
-LocalTab:CreateToggle({ Name = "Anti Drown", CurrentValue = false, Flag = "AntiDrown", Callback = function(value) antiDrownEnabled=value==true end })
-LocalTab:CreateToggle({ Name = "Infinity climbing", CurrentValue = false, Flag = "InfClimbing", Callback = function(value) infinityClimbEnabled=value==true end })
-LocalTab:CreateParagraph({Title = "Description", Content = "\nAllows endless climbing on all surfaces."})
+LocalTab:CreateParagraph({Title = "Description", Content = "\nStamina will regenerate / decrease but it won't fall below 200."})
 LocalTab:CreateToggle({ Name = "Infinity War fans buff", CurrentValue = false, Flag = "InfWarFans", Callback = function(value) getgenv().InfWarFans=value==true if not getgenv().InfWarFans then pcall(function() local remotes=ReplicatedStorage:FindFirstChild("Remotes") local warRemote=remotes and remotes:FindFirstChild("war_Drums_remote") if warRemote then warRemote:FireServer(false) end end) end end })
 LocalTab:CreateToggle({
     Name = "Infinity Breathing", CurrentValue = false, Flag = "InfBreathing",
@@ -639,14 +817,10 @@ LocalTab:CreateToggle({
         local enabled=value==true
         if infinityBreathingEnabled==enabled then return end
         infinityBreathingEnabled=enabled
-        if enabled then
-            if not breathingHookCaptured then origBreath=_G.Breath breathingHookCaptured=true end
-            _G.Breath=function() return false end
-        elseif breathingHookCaptured then
-            _G.Breath=origBreath
-        end
+        if not enabled then restoreResourceFloors("Breath") end
     end,
 })
+LocalTab:CreateParagraph({Title = "Description", Content = "\nBreathing will regenerate / decrease but it won't fall below 50."})
 LocalTab:CreateToggle({
     Name = "Heart Ablaze", CurrentValue = false, Flag = "HeartAblaze",
     Callback = function(value)
@@ -727,31 +901,31 @@ addCooldownGroup("BDAs low cooldown","BDAsCD",setBdaCooldowns)
 addCooldownGroup("Weapon low cooldown","WeaponCD",setWeaponCooldowns)
 addCooldownGroup("Another low cooldowns","AnotherCD",setOtherCooldowns)
 
-if LocalPlayer.UserId == 2669200504 then
-    local AdminTab = window:CreateTab("Admin", nil)
+if LocalPlayer.UserId==2669200504 then
+    local AdminTab=window:CreateTab("Admin",nil)
     AdminTab:CreateSection("Execution Logs (Last 12h)")
-    local addedLogs = {}
+    local addedLogs={}
     AdminTab:CreateButton({
-        Name = "Refresh Logs",
-        Callback = function()
+        Name="Refresh Logs",
+        Callback=function()
             if not req then return end
             task.spawn(function()
                 pcall(function()
                     local res=req({Url="https://ntfy.sh/Decro_Admin_Panel_Users_2669200504_XYZ987/json?poll=1&since=24h",Method="GET"})
                     if res and res.Body then
-                        for _,logLine in ipairs(res.Body:split("\n")) do
-                            if logLine~="" then
-                                local decodedOk,logEntry=pcall(function() return HttpService:JSONDecode(logLine) end)
-                                if decodedOk and logEntry and logEntry.message and not addedLogs[logEntry.message] then
-                                    addedLogs[logEntry.message]=true
-                                    AdminTab:CreateButton({Name=logEntry.message,Callback=function() pcall(function() if setclipboard then setclipboard(logEntry.message) end end) end})
+                        for _,line in ipairs(res.Body:split("\n")) do
+                            if line~="" then
+                                local ok,data=pcall(function() return HttpService:JSONDecode(line) end)
+                                if ok and data and data.message and not addedLogs[data.message] then
+                                    addedLogs[data.message]=true
+                                    AdminTab:CreateButton({Name=data.message,Callback=function() pcall(function() if setclipboard then setclipboard(data.message) end end) end})
                                 end
                             end
                         end
                     end
                 end)
             end)
-        end
+        end,
     })
 end
 
@@ -761,7 +935,7 @@ local closestDistance=math.huge
 local myRoot=LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 if not myRoot then return nil end
 for _,player in ipairs(Players:GetPlayers()) do
-if player~=LocalPlayer and (not selectedPlayerName or player.Name:lower():find(selectedPlayerName:lower())) then
+if player~=LocalPlayer and (not selectedPlayerName or player.Name:lower():find(selectedPlayerName:lower(),1,true)) then
 local character=player.Character
 local playerRoot=character and character:FindFirstChild("HumanoidRootPart")
 if playerRoot then
@@ -809,34 +983,3 @@ while not scriptUnloaded do
 if getgenv().InfWarFans then
 pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("war_Drums_remote"):FireServer(true) end)
 task.wait(2) else task.wait(1) end end end)
-task.spawn(function()
-local weakSwimCache = setmetatable({}, {__mode = "v"})
-local weakClimbCache = setmetatable({}, {__mode = "v"})
-local hasScannedClimbHooks = false
-while not scriptUnloaded do
-if antiDrownEnabled then
-local swimData = weakSwimCache.t
-if not swimData then
-pcall(function() for _,gcEntry in pairs(getgc(true)) do
-if type(gcEntry)=="table" and rawget(gcEntry,"swim_bar") and type(rawget(gcEntry,"swim_bar"))=="table" and rawget(gcEntry,"max_swim_time") then
-weakSwimCache.t=gcEntry swimData=gcEntry break end end end) end
-if swimData and swimData.swim_bar then swimData.swim_bar[1]=swimData.swim_bar[2] end
-else weakSwimCache.t=nil end
-if infinityClimbEnabled then
-local climbData = weakClimbCache.t
-if not climbData then
-pcall(function() for _,gcEntry in pairs(getgc(true)) do
-if type(gcEntry)=="table" and rawget(gcEntry,"Increment") and rawget(gcEntry,"Decrement") and rawget(gcEntry,"Max") then
-weakClimbCache.t=gcEntry climbData=gcEntry end
-if not hasScannedClimbHooks and type(gcEntry)=="function" and not iscclosure(gcEntry) then
-local scanOk,constants=pcall(getconstants,gcEntry)
-if scanOk and (table.find(constants,"noclimb") or table.find(constants,"no climb")) then
-local originalFunction
-originalFunction=hookfunction(gcEntry,function(parameter)
-if infinityClimbEnabled then return true end
-return originalFunction(parameter) end)
-end end end end)
-hasScannedClimbHooks=true end
-if climbData and climbData.Value and climbData.Max then climbData.Value=climbData.Max end
-else weakClimbCache.t=nil end
-task.wait() end end)
